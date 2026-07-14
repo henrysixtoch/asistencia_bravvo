@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Admin — Grupo Bravvo</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#F0F4F8;min-height:100vh}
+
+  header{background:#0D3B66;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem}
+  header h1{font-size:1.1rem;color:#fff;font-weight:800}
+  header p{font-size:.75rem;color:#90CDF4;margin-top:2px}
+  .sv-badge{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:.75rem;color:#fff}
+  .dot{width:7px;height:7px;background:#68D391;border-radius:50%;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .live-tag{display:inline-flex;align-items:center;gap:5px;background:#D4EDDA;color:#155724;border-radius:20px;padding:3px 10px;font-size:.72rem;font-weight:700;margin-left:.6rem}
+  .live-dot{width:6px;height:6px;background:#28A745;border-radius:50%;animation:pulse 1s infinite}
+
+  main{max-width:1300px;margin:0 auto;padding:1.5rem}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.4rem}
+  .stat{background:#fff;border-radius:12px;padding:1rem;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07);transition:transform .2s}
+  .stat:hover{transform:translateY(-2px)}
+  .stat .v{font-size:2.2rem;font-weight:800}
+  .stat .l{font-size:.72rem;color:#718096;margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+
+  .panel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.6rem}
+  .panel-hdr h2{font-size:1rem;color:#0D3B66;font-weight:700;display:flex;align-items:center;gap:.4rem}
+  .actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+
+  .btn{padding:7px 16px;border:none;border-radius:8px;font-weight:600;font-size:.82rem;cursor:pointer;transition:opacity .2s,transform .1s;display:inline-flex;align-items:center;gap:5px}
+  .btn:hover{opacity:.85;transform:translateY(-1px)}
+  .btn-pdf{background:#C53030;color:#fff}
+  .btn-xl{background:#276749;color:#fff}
+  .btn-del{background:#fff;color:#C53030;border:1px solid #FCA5A5}
+
+  .search{padding:7px 13px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:.83rem;width:200px;outline:none;transition:border-color .2s}
+  .search:focus{border-color:#0D3B66}
+
+  .table-wrap{background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  thead tr{background:#0D3B66}
+  thead th{padding:11px 14px;text-align:left;color:#fff;font-weight:600;white-space:nowrap;font-size:.78rem;letter-spacing:.3px}
+  tbody tr{border-bottom:1px solid #EDF2F7;transition:background .12s}
+  tbody tr:hover{background:#EBF4FF}
+  tbody td{padding:10px 14px;vertical-align:middle}
+  tbody tr.new-row{animation:fadeIn .5s ease}
+  @keyframes fadeIn{from{background:#DBEAFE;opacity:.6}to{background:transparent;opacity:1}}
+
+  .hora-local{color:#E65100;font-weight:700;font-family:monospace;font-size:.83rem}
+  .hora-sync{color:#00695C;font-weight:800;font-family:monospace;font-size:.83rem}
+  .nombre-cell{font-weight:600;color:#1A202C}
+  .rtt{font-family:monospace;font-weight:700}
+  .rtt.ok{color:#00695C}
+  .rtt.warn{color:#E65100}
+  .rtt.bad{color:#C53030}
+  .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.2px}
+  .tag-ok{background:#D4EDDA;color:#155724}
+  .tag-err{background:#F8D7DA;color:#721C24}
+
+  #empty{text-align:center;padding:3.5rem;color:#A0AEC0}
+  #empty .icon{font-size:2.5rem;margin-bottom:.5rem}
+
+  .flash{position:fixed;top:1rem;right:1rem;background:#0D3B66;color:#fff;padding:.7rem 1.2rem;border-radius:10px;font-size:.82rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);transform:translateY(-20px);opacity:0;transition:all .3s;z-index:200}
+  .flash.show{transform:translateY(0);opacity:1}
+
+  .footer{text-align:center;margin-top:1.2rem;font-size:.78rem;color:#A0AEC0}
+  .footer a{color:#0D3B66;font-weight:600;text-decoration:none}
+
+  @media(max-width:700px){.stats{grid-template-columns:1fr 1fr}.actions{justify-content:flex-start}}
+</style>
+</head>
+<body>
+
+<div class="flash" id="flash"></div>
+
+<header>
+  <div>
+    <h1>🏢 Grupo Bravvo S.A.C — Panel Admin</h1>
+    <p>Control de Asistencia · Algoritmo de Cristian · Actualización en tiempo real</p>
+  </div>
+  <div class="sv-badge"><span class="dot"></span> Servidor activo &nbsp;·&nbsp; <span id="sv-url"></span></div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat">
+      <div class="v" id="st-total" style="color:#0D3B66">0</div>
+      <div class="l">Total registros</div>
+    </div>
+    <div class="stat">
+      <div class="v" id="st-ok" style="color:#00695C">0</div>
+      <div class="l">Validados</div>
+    </div>
+    <div class="stat">
+      <div class="v" id="st-rtt" style="color:#0D3B66">—</div>
+      <div class="l">RTT promedio</div>
+    </div>
+    <div class="stat">
+      <div class="v" id="st-err" style="color:#E65100">0</div>
+      <div class="l">RTT alto</div>
+    </div>
+  </div>
+
+  <div class="panel-hdr">
+    <h2>
+      Registros de Asistencia
+      <span class="live-tag"><span class="live-dot"></span> EN VIVO</span>
+    </h2>
+    <div class="actions">
+      <input class="search" type="text" id="buscar" placeholder="🔍 Buscar empleado..." oninput="filtrar()">
+      <button class="btn btn-pdf" onclick="window.open('/api/exportar/pdf')">🖨️ PDF</button>
+      <button class="btn btn-xl"  onclick="window.open('/api/exportar/excel')">📊 Excel</button>
+      <button class="btn btn-del" onclick="limpiar()">🗑️ Limpiar</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Empleado</th>
+          <th>Hora PC (desfasada)</th>
+          <th>Hora Oficial (Cristian)</th>
+          <th>RTT ms</th>
+          <th>Error ms</th>
+          <th>Incertidumbre</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty">
+      <div class="icon">📋</div>
+      Sin registros aún. Los empleados ingresan desde <strong>/</strong>
+    </div>
+  </div>
+</main>
+
+<div class="footer"><a href="/">← Vista empleado</a></div>
+
+<script>
+let cache=[], lastCount=0;
+document.getElementById('sv-url').textContent=window.location.host;
+
+// ── Polling cada 2 segundos (tiempo real sin botón) ────────────────
+async function poll(){
+  try{
+    const r=await fetch('/api/registros');
+    const data=await r.json();
+
+    // Solo actualizar DOM si hay cambios
+    if(data.length!==lastCount){
+      if(data.length>lastCount && lastCount>0) flash(`Nuevo registro: ${data[data.length-1].nombre}`);
+      lastCount=data.length;
+      cache=data;
+      filtrar();
+      actualizarStats();
+    }
+  }catch(e){}
+}
+
+function actualizarStats(){
+  const ok=cache.filter(r=>r.valido).length;
+  const rtts=cache.map(r=>r.rtt_ms).filter(Boolean);
+  const avg=rtts.length?Math.round(rtts.reduce((a,b)=>a+b,0)/rtts.length):null;
+  document.getElementById('st-total').textContent=cache.length;
+  document.getElementById('st-ok').textContent=ok;
+  document.getElementById('st-rtt').textContent=avg?avg+' ms':'—';
+  document.getElementById('st-err').textContent=cache.length-ok;
+}
+
+function filtrar(){
+  const q=document.getElementById('buscar').value.toLowerCase();
+  renderTabla(cache.filter(r=>r.nombre.toLowerCase().includes(q)));
+}
+
+function rttClass(rtt){if(rtt<100)return'ok';if(rtt<500)return'warn';return'bad';}
+
+function renderTabla(data){
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty');
+  if(!data.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+
+  // Construir HTML completo y comparar para evitar flicker innecesario
+  const html=data.map((r,i)=>`
+    <tr class="${i>=data.length-1&&data.length>lastCount-1?'new-row':''}">
+      <td style="color:#A0AEC0;font-weight:600">${r.n}</td>
+      <td class="nombre-cell">${r.nombre}</td>
+      <td class="hora-local">${r.hora_cliente}</td>
+      <td class="hora-sync">${r.hora_oficial}</td>
+      <td class="rtt ${rttClass(r.rtt_ms)}">${r.rtt_ms}</td>
+      <td style="font-family:monospace;color:#718096">${r.error_ms}</td>
+      <td style="font-size:.75rem;color:#A0AEC0">±${r.incertidumbre} ms</td>
+      <td style="color:#A0AEC0;font-size:.78rem">${r.fecha}</td>
+      <td><span class="tag ${r.valido?'tag-ok':'tag-err'}">${r.valido?'✓ Validado':'⚠ RTT alto'}</span></td>
+    </tr>`).join('');
+  tbody.innerHTML=html;
+}
+
+// ── Notificación temporal ──────────────────────────────────────────
+function flash(msg){
+  const el=document.getElementById('flash');
+  el.textContent='🔔 '+msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+async function limpiar(){
+  if(!confirm('¿Eliminar todos los registros de esta sesión?'))return;
+  await fetch('/api/limpiar',{method:'DELETE'});
+  cache=[];lastCount=0;filtrar();actualizarStats();
+}
+
+// ── Keep-alive cada 9 min ──────────────────────────────────────────
+setInterval(()=>fetch('/ping').catch(()=>{}), 9*60*1000);
+
+// Iniciar polling
+poll();
+setInterval(poll,2000);
+</script>
+</body>
+</html>

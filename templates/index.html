@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistencia — Grupo Bravvo</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#F0F4F8;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+
+  .logo-bar{text-align:center;margin-bottom:1.4rem}
+  .logo-bar h1{font-size:1.45rem;color:#0D3B66;font-weight:800;letter-spacing:.4px}
+  .logo-bar p{font-size:.82rem;color:#718096;margin-top:3px}
+
+  .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.10);padding:1.8rem;width:100%;max-width:450px}
+
+  .sv-badge{display:flex;align-items:center;gap:.5rem;background:#E0F2F1;border:1px solid #00695C;border-radius:8px;padding:.45rem .9rem;margin-bottom:1.4rem;font-size:.8rem;color:#00695C;font-weight:600}
+  .dot{width:8px;height:8px;background:#00695C;border-radius:50%;flex-shrink:0;transition:background .3s}
+  .dot.warn{background:#E65100}
+  .dot.sleep{background:#718096;animation:blink 1s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .dot.ok{animation:pulse 1.5s infinite}
+
+  label{display:block;font-size:.8rem;color:#0D3B66;font-weight:600;margin-bottom:5px}
+  input[type=text]{width:100%;padding:11px 14px;border:2px solid #E2E8F0;border-radius:9px;font-size:1rem;color:#1A202C;transition:border-color .2s;outline:none}
+  input[type=text]:focus{border-color:#0D3B66}
+  input[type=text]:disabled{background:#F7FAFC;color:#A0AEC0}
+
+  .clocks{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:1rem 0}
+  .clock-box{border:1px solid #E2E8F0;border-radius:9px;padding:.65rem;text-align:center;background:#F7FAFC}
+  .clock-box .lbl{font-size:.7rem;color:#718096;margin-bottom:2px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .clock-box .val{font-size:1.05rem;font-weight:700;font-family:monospace}
+  .clock-box.local .val{color:#E65100}
+  .clock-box.sync  .val{color:#00695C}
+
+  .btn{width:100%;padding:13px;margin-top:.8rem;border:none;border-radius:10px;background:#0D3B66;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;transition:background .2s,transform .1s,opacity .2s;position:relative;overflow:hidden}
+  .btn:hover:not(:disabled){background:#1A6FA8;transform:translateY(-1px)}
+  .btn:active:not(:disabled){transform:translateY(0)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn.loading::after{content:'';position:absolute;bottom:0;left:0;height:3px;background:rgba(255,255,255,.5);animation:progress 1.5s ease-in-out infinite}
+  @keyframes progress{0%{width:0;left:0}50%{width:60%;left:20%}100%{width:0;left:100%}}
+
+  .log{margin-top:1rem;background:#1A202C;border-radius:9px;padding:.8rem 1rem;font-family:monospace;font-size:.76rem;min-height:72px;max-height:140px;overflow-y:auto;line-height:1.6}
+  .log .l{margin:0}
+  .log .l.ok{color:#68D391}
+  .log .l.err{color:#FC8181}
+  .log .l.info{color:#63B3ED}
+  .log .l.warn{color:#F6AD55}
+
+  .result{margin-top:1rem;border-radius:10px;padding:1rem 1.2rem;display:none}
+  .result.ok{background:#D4EDDA;border:1px solid #28A745}
+  .result.err{background:#F8D7DA;border:1px solid #DC3545}
+  .result h3{font-size:.92rem;font-weight:700;margin-bottom:.6rem}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:.35rem .8rem;font-size:.8rem}
+  .result-grid .k{color:#546E7A;font-size:.72rem;font-weight:600;text-transform:uppercase}
+  .result-grid .v{font-weight:700}
+
+  .footer-link{text-align:center;margin-top:1rem;font-size:.78rem;color:#A0AEC0}
+  .footer-link a{color:#0D3B66;font-weight:600;text-decoration:none}
+  .footer-link a:hover{text-decoration:underline}
+
+  .wake-overlay{display:none;position:fixed;inset:0;background:rgba(13,59,102,.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:1rem;color:#fff;text-align:center}
+  .wake-overlay.show{display:flex}
+  .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="wake-overlay" id="wake-overlay">
+  <div class="spinner"></div>
+  <div>
+    <strong>Despertando servidor...</strong><br>
+    <span style="font-size:.85rem;opacity:.8">Render (plan gratuito) duerme tras 15 min de inactividad.<br>Espera unos segundos.</span>
+  </div>
+</div>
+
+<div class="logo-bar">
+  <h1>🏢 Grupo Bravvo S.A.C</h1>
+  <p>Control de Asistencia — Algoritmo de Cristian</p>
+</div>
+
+<div class="card">
+  <div class="sv-badge">
+    <span class="dot ok" id="dot"></span>
+    <span id="sv-status">Servidor activo</span>
+    &nbsp;·&nbsp;
+    <span id="sv-url" style="opacity:.7;font-weight:400"></span>
+  </div>
+
+  <label for="nombre">Nombre completo</label>
+  <input type="text" id="nombre" placeholder="Ej: Ana Torres Quispe" autocomplete="off">
+
+  <div class="clocks">
+    <div class="clock-box local">
+      <div class="lbl">Hora local (desfasada)</div>
+      <div class="val" id="hora-local">--:--:-- --</div>
+    </div>
+    <div class="clock-box sync">
+      <div class="lbl">Hora oficial (Cristian)</div>
+      <div class="val" id="hora-sync">--:--:-- --</div>
+    </div>
+  </div>
+
+  <button class="btn" id="btn" onclick="registrar()">📋 Registrar Asistencia</button>
+
+  <div class="log" id="log">
+    <p class="l info">> Sistema listo. Ingresa tu nombre y presiona Registrar.</p>
+  </div>
+
+  <div class="result" id="result">
+    <h3 id="result-title"></h3>
+    <div class="result-grid" id="result-grid"></div>
+  </div>
+</div>
+
+<div class="footer-link">
+  Administración → <a href="/admin">Panel Admin</a>
+</div>
+
+<script>
+// ── Helpers ────────────────────────────────────────────────────────
+function pad(n){return String(n).padStart(2,'0')}
+function fmt(ts){
+  const d=new Date(ts),h=d.getHours(),m=d.getMinutes(),s=d.getSeconds();
+  const ap=h>=12?'PM':'AM',hh=h%12||12;
+  return `${pad(hh)}:${pad(m)}:${pad(s)} ${ap}`;
+}
+function log(msg,cls='info'){
+  const p=document.createElement('p');p.className='l '+cls;p.textContent='> '+msg;
+  const el=document.getElementById('log');el.appendChild(p);el.scrollTop=9999;
+}
+function clearLog(){document.getElementById('log').innerHTML=''}
+
+// ── Reloj local en tiempo real ─────────────────────────────────────
+setInterval(()=>document.getElementById('hora-local').textContent=fmt(Date.now()),500);
+document.getElementById('sv-url').textContent=window.location.host;
+
+// ── Keep-alive: ping cada 9 min para que Render no duerma ──────────
+async function keepAlive(){
+  try{ await fetch('/ping'); }catch(e){}
+}
+setInterval(keepAlive, 9*60*1000);
+
+// ── Verificar si servidor está dormido al cargar ──────────────────
+(async()=>{
+  const dot=document.getElementById('dot');
+  const status=document.getElementById('sv-status');
+  try{
+    const t=Date.now();
+    const r=await fetch('/ping',{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) throw new Error();
+    // Si tarda más de 3s, servidor estaba durmiendo
+    if(Date.now()-t>3000){
+      dot.className='dot warn';status.textContent='Servidor despertando...';
+      setTimeout(()=>{dot.className='dot ok';status.textContent='Servidor activo';},3000);
+    }
+  }catch(e){
+    // Servidor dormido: mostrar overlay y reintentar
+    dot.className='dot sleep';status.textContent='Despertando servidor...';
+    document.getElementById('wake-overlay').classList.add('show');
+    await wakeServer();
+  }
+})();
+
+async function wakeServer(){
+  for(let i=0;i<20;i++){
+    await new Promise(r=>setTimeout(r,3000));
+    try{
+      const r=await fetch('/ping',{signal:AbortSignal.timeout(5000)});
+      if(r.ok){
+        document.getElementById('wake-overlay').classList.remove('show');
+        document.getElementById('dot').className='dot ok';
+        document.getElementById('sv-status').textContent='Servidor activo';
+        return;
+      }
+    }catch(e){}
+  }
+}
+
+// ── Registro de asistencia (Algoritmo de Cristian) ─────────────────
+async function registrar(){
+  const nombre=document.getElementById('nombre').value.trim();
+  if(!nombre){log('Ingresa tu nombre primero.','err');return;}
+
+  const btn=document.getElementById('btn');
+  btn.disabled=true;btn.classList.add('loading');
+  document.getElementById('result').style.display='none';
+  clearLog();
+
+  try{
+    log('Iniciando Algoritmo de Cristian...','info');
+
+    // PASO 1 — T0: marca de tiempo antes de enviar
+    const T0=Date.now();
+    log(`T0 (envío): ${fmt(T0)}`,'info');
+
+    // PASO 2 — Consultar hora al servidor
+    log('Consultando hora al servidor...','info');
+    const r1=await fetch(`/api/tiempo?t0=${T0}`);
+    if(!r1.ok) throw new Error('Servidor no responde');
+    const d1=await r1.json();
+
+    // PASO 3 — T1: marca al recibir respuesta → RTT
+    const T1=Date.now();
+    const RTT=T1-T0;
+    log(`RTT calculado: ${RTT} ms`,'info');
+    log(`Hora servidor: ${d1.hora_legible}`,'info');
+    document.getElementById('hora-sync').textContent=d1.hora_legible;
+
+    // PASO 4 — Enviar registro completo
+    log('Enviando registro...','info');
+    const r2=await fetch('/api/registrar',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nombre,t0_ms:T0,t1_ms:T1,t_servidor_ms:d1.t_servidor_ms,hora_cliente:fmt(T0)})
+    });
+    const d2=await r2.json();
+
+    if(d2.ok){
+      log('¡Asistencia registrada correctamente!','ok');
+      mostrarResultado(true,d2);
+    } else {
+      log('Error: '+d2.error,'err');
+    }
+  }catch(e){
+    log('Error de conexión. El servidor puede estar iniciando, espera unos segundos y reintenta.','err');
+    log('Si persiste, recarga la página.','warn');
+    document.getElementById('dot').className='dot sleep';
+    document.getElementById('sv-status').textContent='Reconectando...';
+    // Intentar despertar
+    wakeServer();
+  }
+
+  btn.disabled=false;btn.classList.remove('loading');
+}
+
+function mostrarResultado(ok,data){
+  const box=document.getElementById('result');
+  box.className='result '+(ok?'ok':'err');
+  box.style.display='block';
+  document.getElementById('result-title').textContent=ok?'✅ Asistencia registrada':'❌ Error';
+  document.getElementById('result-grid').innerHTML=[
+    ['Hora local',data.hora_cliente],
+    ['Hora oficial',data.hora_oficial],
+    ['RTT',data.rtt_ms+' ms'],
+    ['Error sync',data.error_ms+' ms'],
+    ['Estado',data.estado],
+  ].map(([k,v])=>`<span class="k">${k}</span><span class="v">${v}</span>`).join('');
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter')registrar()});
+</script>
+</body>
+</html>
